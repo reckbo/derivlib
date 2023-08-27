@@ -88,3 +88,9 @@ class LocalPaths(Resource):
 
     def status(self):
         return {p: p.exists() for p in self.paths.values()}
+
+
+class ReadableResource(Resource):
+    @abstractmethod
+    def read(self):
+        pass
