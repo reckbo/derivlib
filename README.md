@@ -49,12 +49,12 @@ derived data.
 from pathlib import Path
 
 from derivlib import Transform, Source, Deriv
-from derivlib.resources import ReadableResource, LocalPath
+from derivlib.resources import LocalPath
 
 class ConcatenateTxt(Transform):
   class Inputs:
-    txt1: ReadableResource
-    txt2: ReadableResource
+    txt1: LocalPath
+    txt2: LocalPath
   class Config:
     output_dir: Path | str
     
@@ -65,18 +65,30 @@ class ConcatenateTxt(Transform):
     return LocalPath(self.output_id() + '.txt')
     
   def run(self):
-    self.output().write(self.inputs.txt1.read() + self.inputs.txt2.read())
+    self.output().write_text(
+      self.inputs.txt1.read_text() + self.inputs.txt2.read_text())
 
 deriv = Deriv(
   ConcatenateTxt,
-  inputs={'txt1': Source(LocalPath('foo1.txt'), id='foo1'),
-          'txt2': Source(LocalPath('foo2.txt'), id='foo2')},
+  inputs={'txt1': Source(LocalPath('/tmp/foo1.txt'), id='foo1'),
+          'txt2': Source(LocalPath('/tmp/foo2.txt'), id='foo2')},
   config={'output_dir': '/tmp'}
 )
 
+Path('/tmp/foo1.txt').write_text('I am foo1')
+Path('/tmp/foo2.txt').write_text(' and I am foo2')
+
 deriv.show_outputs()  # prints tree of outputs, those in green are complete
-deriv.show_configs()  # prints tree of configs
-deriv.make()  # builds the outputs (only those not up to date)
+
+# └─-ConcatenateTxt LocalPath(txt1_txt2.txt)
+#   |--txt1: Source(LocalPath, id=foo1) LocalPath(/tmp/foo1.txt)
+#   └─-txt2: Source(LocalPath, id=foo2) LocalPath(/tmp/foo2.txt)
+
+deriv.make()  # Builds txt1_txt2.txt
+deriv.make()  # Does nothing
+deriv.output().read_text()
+
+# I am foo1 and I am foo2
 ```
 
 
