@@ -303,7 +303,7 @@ class Node(ABC):
         )
 
     def show_output_ids(self, depth=100):
-        self._show(
+        self._show_tree(
             depth,
             lambda x: (StringColor.green if x.uptodate() else StringColor.blue)(
                 f"{x.repr_node()}  {x.output_id()}"
