@@ -53,17 +53,23 @@ class LocalPath(Resource):
         return other.path == self.path
 
     @property
-    def path(self):
+    def path(self) -> Path:
         return self._path
 
-    def with_suffix(self, *args):
+    def with_suffix(self, *args) -> LocalPath:
         return self.__class__(self.path.with_suffix(*args))
 
-    def exists(self):
+    def exists(self) -> bool:
         return self.path.exists()
 
     def unlink(self):
         self.path.unlink()
+
+    def write_text(self, data, encoding=None):
+        self.path.write_text(data, encoding=encoding)
+
+    def read_text(self, encoding=None) -> str:
+        return self.path.read_text(encoding=encoding)
 
 
 class LocalPaths(Resource):
