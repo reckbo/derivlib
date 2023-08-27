@@ -47,7 +47,8 @@ derived data.
 
 ``` python
 from pathlib import Path
-from derivlib import ReadableResource, Transform, Source, Deriv
+from derivlib import Transform, Source, Deriv
+from derivlib.resources import ReadableResource, LocalPath
 
 class ConcatenateTxt(Transform):
   class Inputs:
@@ -66,16 +67,19 @@ class ConcatenateTxt(Transform):
     self.output().write(self.inputs.txt1.read() + self.inputs.txt2.read())
 
 deriv = Deriv(
-  MyTransform,
-  inputs={'txt1': Source(LocalPath('foo1.txt'), id='foo1')
-          'txt2': Source(LocalPath(foo2.txt'), id='foo2')},
+  ConcatenateTxt,
+  inputs={'txt1': Source(LocalPath('foo1.txt'), id='foo1'),
+          'txt2': Source(LocalPath('foo2.txt'), id='foo2')},
   config={'output_dir': '/tmp'}
 )
 
-deriv.make()
+deriv.show_outputs()  # prints tree of outputs, those in green are complete
+deriv.show_configs()  # prints tree of configs
+deriv.make()  # builds the outputs (only those not up to date)
 ```
 
 
 # TODO
 
 - Implement a parallel scheduler similiar to `jug`.
+- Add examples
