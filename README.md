@@ -47,6 +47,7 @@ derived data.
 
 ``` python
 from pathlib import Path
+
 from derivlib import Transform, Source, Deriv
 from derivlib.resources import ReadableResource, LocalPath
 
@@ -81,5 +82,6 @@ deriv.make()  # builds the outputs (only those not up to date)
 
 # TODO
 
-- Implement a parallel scheduler similiar to `jug`.
+- Add docstrings
 - Add examples
+- Implement a parallel scheduler similiar to `jug`.
