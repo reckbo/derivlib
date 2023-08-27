@@ -6,6 +6,7 @@ import logging
 import dataclasses
 from dataclasses import dataclass
 from pprint import pformat
+from typing import Any
 
 
 logger = logging.getLogger(__name__)
@@ -26,8 +27,34 @@ class StringColor:
 
 
 def repr_tree(
-    node, get_children, indent="", last=True, repr_node_fn=repr, depth=0, max_depth=100
+    node: Any,
+    get_children: Callable,
+    prefix: str = "",
+    indent: str = "",
+    last: bool = True,
+    repr_node_fn: Callable = repr,
+    depth: int = 0,
+    max_depth: int = 100,
 ):
+    """Create string representation of a DAG.
+
+    Parameters
+    ----------
+    node : Any
+        node of a DAG
+    get_children : Callable
+        function that returns dict of children of a node
+    prefix : str
+        prefix string of node representation
+    indent : string
+        indentation of node
+    last : bool
+        is it the last node?
+    repr_node_fn : Callable
+        function that returns string representation of a node
+    depth : int
+    max_depth : int
+    """
     result = "\n" + indent
     if last:
         result += "└─-"
@@ -35,14 +62,15 @@ def repr_tree(
     else:
         result += "|--"
         indent += "|  "
-    result += repr_node_fn(node)
+    result += prefix + repr_node_fn(node)
     if depth >= max_depth:
         return result
     children = get_children(node)
-    for idx, child in enumerate(children):
+    for idx, (name, child) in enumerate(children.items()):
         result += repr_tree(
             node=child,
             get_children=get_children,
+            prefix=name + ": ",
             indent=indent,
             last=(idx + 1) == len(children),
             repr_node_fn=repr_node_fn,
@@ -270,7 +298,7 @@ class Node(ABC):
         print(
             repr_tree(
                 self,
-                get_children=lambda x: x.deps.values(),
+                get_children=lambda x: x.deps,
                 repr_node_fn=repr_node_fn,
                 max_depth=depth,
             )
