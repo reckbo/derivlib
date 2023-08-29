@@ -7,14 +7,14 @@ neuroimaging pipelines extensively used in a research environment.
 
 # Design goals
 
-- output targets can be any part of an addressable store: a local filepath,
+- Output targets can be any part of an addressable store: a local filepath,
   database field, memory object, dropbox path, AWS path, list of filepaths, etc.
-- transforms separate from the DAG: ability to test each transform individually, and re-use in different DAGs
+- Transforms are separate from the DAG: they can be tested individually and re-used
 - reusable and composible DAGs (e.g. ability to use sub-DAGs as inputs)
-- ability to query the DAG for which outputs are complete and incomplete
-- option for different schedulers (sequential, parallel, different conditional execution strategies)
+- Ability to query the DAG showing the completion status for each output
+- Option for different schedulers (sequential, parallel, different conditional execution strategies)
   - currently only sequential implemented
-- customizable method to specify how output data is determined to be up to date
+- Customizable method to specify how output data is determined to be up to date
 
 # Non-goals:
 
@@ -91,6 +91,10 @@ deriv.output().read_text()
 # I am foo1 and I am foo2
 ```
 
+# Inspirations
+
+- [Build Systems a la carte: Theory and practice](https://www.cambridge.org/core/journals/journal-of-functional-programming/article/build-systems-a-la-carte-theory-and-practice/097CE52C750E69BD16B78C318754C7A4)
+- [Luigi](https://github.com/spotify/luigi)
 
 # TODO
 

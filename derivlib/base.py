@@ -2,11 +2,12 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from collections.abc import Mapping
-import logging
 import dataclasses
 from dataclasses import dataclass
+import itertools
+import logging
 from pprint import pformat
-from typing import Any
+from typing import Any, List
 
 
 logger = logging.getLogger(__name__)
@@ -90,12 +91,12 @@ def filter_unique(xs, key_func=id):
     return result
 
 
-def concat(lst):
-    return [item for sublist in lst for item in sublist]
+def concat(lst: List) -> List:
+    return list(itertools.chain(*lst))
 
 
-def _toposort(node):
-    return concat(_toposort(op) for op in node.deps.values()) + [node]
+def toposort(node: Node):
+    return concat(toposort(op) for op in node.deps.values()) + [node]
 
 
 def _repr_dict(dct):
@@ -105,18 +106,63 @@ def _repr_dict(dct):
 
 
 class Resource(ABC):
+    """
+    Abstract class representing a "resource".
+
+    A resource represents a location, or set of locations, in an addressable
+    store.  Often this is a local  filepath, but it can be any location where
+    data can be stored, such as memory or a database.
+    """
+
     @abstractmethod
     def exists(self) -> bool:
+        """Is the resource location non-empty?"""
         pass
 
     def status(self) -> dict:
+        """Returns an overview."""
         return {"exists": self.exists()}
 
 
 class Transform(ABC):
+    """
+    Abstract class for a "transform".
+
+    Transforms are mappings from one or more resources to another resource.
+    They encapsulate the logical transformation of data and are the computations
+    that are run by the scheduler.  They read the contents of their input
+    resources, perform some transformation, and write the results to an output
+    resource.
+
+    Parameters
+    ----------
+    inputs : dict
+        input resources
+    params : dict
+        parameters that modify the computation
+    config : dict
+        values that control how the computation is run, but does not have an
+        effect on the output
+    input_ids : dict
+        string IDs for each of the inputs
+    output_id : str
+        string ID for the output data
+
+    Raises
+    ------
+    NotImplementedError
+    TypeError
+    """
+
     def __init__(
-        self, inputs, params=None, config=None, input_ids=None, output_id=None
+        self,
+        inputs: dict,
+        params: dict | None = None,
+        config: dict | None = None,
+        input_ids: dict | None = None,
+        output_id: str | None = None,
     ):
+
         self._input_kwargs = inputs
         self._param_kwargs = params or {}
         self._config_kwargs = config or {}
@@ -347,7 +393,7 @@ class Node(ABC):
         return self.show(depth=100, color=True)
 
     def toposort(self, unique=True):
-        result = _toposort(self)
+        result = toposort(self)
         if unique:
             return filter_unique(result)
         return result

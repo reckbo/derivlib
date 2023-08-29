@@ -87,7 +87,7 @@ class TestShowOutputs:
     def test_deriv_show_outputs(self, capsys, add):
         add.show_outputs()
         captured = capsys.readouterr()
-        assert len(captured.out) == 150
+        assert len(captured.out) == 160
 
 
 def test_toposort(val2, val5, add):
