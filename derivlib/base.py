@@ -7,7 +7,7 @@ from dataclasses import dataclass
 import itertools
 import logging
 from pprint import pformat
-from typing import Any, List
+from typing import Any, List, Callable
 
 
 logger = logging.getLogger(__name__)
@@ -91,8 +91,8 @@ def filter_unique(xs, key_func=id):
     return result
 
 
-def concat(lst: List) -> List:
-    return list(itertools.chain(*lst))
+def concat(lsts) -> List:
+    return list(itertools.chain(*lsts))
 
 
 def toposort(node: Node):
@@ -124,6 +124,17 @@ class Resource(ABC):
         return {"exists": self.exists()}
 
 
+def _instantiate_dataclass(dataclass_cls, kwargs):
+    try:
+        return dataclass_cls(**kwargs)
+    except TypeError as err:
+        raise TypeError(f"{dataclass_cls}: {err}") from err
+
+
+def _bind_kwargs(dataclass_cls, kwargs: dict) -> dict:
+    return dataclasses.asdict(_instantiate_dataclass(dataclass_cls, kwargs))
+
+
 class Transform(ABC):
     """
     Abstract class for a "transform".
@@ -148,11 +159,30 @@ class Transform(ABC):
     output_id : str
         string ID for the output data
 
+    Attributes
+    ----------
+    inputs
+        instantiated Inputs class
+    params
+        instatiated Params class
+    config
+        instantiated Config class
+    input_ids
+        dict of ID's for the input data that may be used to auto-generate an output ID
+    given_output_id
+        user supplied output ID that overrides the auto-generated output ID
+
     Raises
     ------
     NotImplementedError
     TypeError
     """
+
+    inputs: Inputs
+    params: Params
+    config: Config
+    input_ids: dict | None
+    given_output_id: str | None
 
     def __init__(
         self,
@@ -163,14 +193,18 @@ class Transform(ABC):
         output_id: str | None = None,
     ):
 
-        self._input_kwargs = inputs
-        self._param_kwargs = params or {}
-        self._config_kwargs = config or {}
-        self._output_id = output_id
-        self.input_ids = input_ids or {}
-        self._inputs = self._bind_inputs(self._input_kwargs)
-        self._params = self._bind_params(self._param_kwargs)
-        self._config = self._bind_config(self._config_kwargs)
+        self.input_kwargs = inputs
+        self.param_kwargs = params or {}
+        self.config_kwargs = config or {}
+        self.given_output_id = output_id
+        self.input_ids = input_ids
+        self.inputs = _instantiate_dataclass(self.get_inputs_dataclass(), inputs)
+        self.params = _instantiate_dataclass(
+            self.get_params_dataclass(), self.param_kwargs
+        )
+        self.config = _instantiate_dataclass(
+            self.get_config_dataclass(), self.config_kwargs
+        )
 
     @property
     def name(self):
@@ -194,19 +228,12 @@ class Transform(ABC):
         return dataclass(cls.Inputs)
 
     @classmethod
-    def get_config_dataclass(cls):
-        return dataclass(cls.Config)
-
-    @classmethod
     def get_params_dataclass(cls):
         return dataclass(cls.Params)
 
-    @staticmethod
-    def make_model(model_cls, kwargs):
-        try:
-            return model_cls(**kwargs)
-        except TypeError as err:
-            raise TypeError(f"{model_cls}: {err}") from err
+    @classmethod
+    def get_config_dataclass(cls):
+        return dataclass(cls.Config)
 
     def auto_output_id(self):
         raise NotImplementedError(
@@ -214,85 +241,67 @@ class Transform(ABC):
         )
 
     def output_id(self) -> str:
-        if self._output_id:
-            return self._output_id
+        if self.given_output_id:
+            return self.given_output_id
         return self.auto_output_id()
 
     @abstractmethod
     def output(self) -> Resource:
         pass
 
-    def _bind_inputs(self, kwargs):
-        return self.make_model(self.get_inputs_dataclass(), kwargs)
-
-    def _bind_params(self, kwargs):
-        return self.make_model(self.get_params_dataclass(), kwargs)
-
-    def _bind_config(self, kwargs):
-        return self.make_model(self.get_config_dataclass(), kwargs)
-
     @property
-    def inputs(self):
-        return self._inputs
-
-    @property
-    def params(self):
-        return self._params
-
-    @property
-    def config(self):
-        return self._config
-
-    def params_dict(self):
-        return dataclasses.asdict(self.params)
-
-    def config_dict(self):
-        return dataclasses.asdict(self.config)
-
     def inputs_dict(self):
         return dataclasses.asdict(self.inputs)
 
+    @property
+    def params_dict(self):
+        return dataclasses.asdict(self.params)
+
+    @property
+    def config_dict(self):
+        return dataclasses.asdict(self.config)
+
     def with_inputs(self, **kwargs):
         return self.__class__(
-            inputs=dict(self._input_kwargs, **kwargs),
-            params=self._param_kwargs,
-            config=self._config_kwargs,
+            inputs=dict(self.input_kwargs, **kwargs),
+            params=self.param_kwargs,
+            config=self.config_kwargs,
             input_ids=self.input_ids,
             output_id=self._output_id,
         )
 
     def with_params(self, **kwargs):
         return self.__class__(
-            inputs=self._input_kwargs,
-            params=dict(self._param_kwargs, **kwargs),
+            inputs=self.input_kwargs,
+            params=dict(self.param_kwargs, **kwargs),
             config=self._config_kwargs,
             input_ids=self.input_ids,
-            output_id=self._output_id,
+            output_id=self._given_output_id,
         )
 
     def with_config(self, **kwargs):
         return self.__class__(
-            inputs=self._input_kwargs,
-            params=self._param_kwargs,
-            config=dict(self._config_kwargs, **kwargs),
+            inputs=self.input_kwargs,
+            params=self.param_kwargs,
+            config=dict(self.config_kwargs, **kwargs),
             input_ids=self.input_ids,
             output_id=self._output_id,
         )
 
     def with_input_ids(self, **kwargs):
         return self.__class__(
-            inputs=self._input_kwargs,
-            params=self._param_kwargs,
-            config=self._config_kwargs,
+            inputs=self.input_kwargs,
+            params=self.param_kwargs,
+            config=self.config_kwargs,
             input_ids=dict(self.input_ids, **kwargs),
             output_id=self._output_id,
         )
 
     def with_output_id(self, output_id):
         return self.__class__(
-            inputs=self._input_kwargs,
-            params=self._param_kwargs,
-            config=self._config_kwargs,
+            inputs=self.input_kwargs,
+            params=self.param_kwargs,
+            config=self.config_kwargs,
             input_ids=self.input_ids,
             output_id=output_id,
         )
@@ -447,6 +456,18 @@ class Source(Node):
         raise Exception(f"Missing external data: {self.resource}")
 
 
+def _create_transform(
+    transform_cls, inputs: dict, params: dict, config: dict, output_id=None
+):
+    return transform_cls(
+        inputs={k: n.output() for k, n in inputs.items()},
+        params=params,
+        config=config,
+        input_ids={k: n.output_id() for k, n in inputs.items()},
+        output_id=output_id,
+    )
+
+
 class Deriv(Node):
     def __init__(
         self,
@@ -456,27 +477,14 @@ class Deriv(Node):
         params=None,
         config=None,
         output_id=None,
-        tag=None,
     ):
-        self._transform_cls = transform_cls
-        self._input_kwargs = inputs or {}
-        self._param_kwargs = params or {}
-        self._config_kwargs = config or {}
-        self._given_output_id = output_id
-        self.tag = tag
-        self.transform = self._create_transform()
-
-    def _create_transform(self):
-        return self._transform_cls(
-            inputs={k: n.output() for k, n in self._input_kwargs.items()},
-            params=self._param_kwargs,
-            config=self._config_kwargs,
-            input_ids={k: n.output_id() for k, n in self._input_kwargs.items()},
-            output_id=self._given_output_id,
+        self._deps = inputs
+        self.transform = _create_transform(
+            transform_cls, inputs, params, config, output_id
         )
 
     def __repr__(self):
-        params = _repr_dict(self.transform.params_dict())
+        params = _repr_dict(self.transform.params_dict)
         return f"{self.transform.name}{params}"
 
     @property
@@ -485,15 +493,15 @@ class Deriv(Node):
 
     @property
     def deps(self):
-        return self._input_kwargs
+        return self._deps
 
     @property
     def params(self):
-        return self.transform.params_dict()
+        return self.transform.params_dict
 
     @property
     def config(self):
-        return self.transform.config_dict()
+        return self.transform.config_dict
 
     def output_id(self):
         return self.transform.output_id()
