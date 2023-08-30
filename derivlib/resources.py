@@ -11,9 +11,7 @@ class Resources(Resource):
     def from_list(cls, resources):
         return cls({str(k): v for k, v in enumerate(resources)})
 
-    def __init__(self, resources: dict | pd.Series):
-        if isinstance(resources, pd.Series):
-            resources = resources.to_dict()
+    def __init__(self, resources: dict):
         self.resources = resources
 
     def exists(self) -> bool:
